@@ -1,138 +1,136 @@
-# VortexOS Technical Documentation
+# VortexOS Technical Architecture and Operational Manual
 
-VortexOS is a high-performance, hard real-time operating system built from the ground up for the x86-64 architecture. It is engineered using modern C++23 standards to provide a deterministic, low-latency environment suitable for mission-critical applications, high-frequency trading, and advanced embedded systems.
+VortexOS is a high-performance, hard real-time operating system engineered from the ground up for the x86-64 architecture. This system is developed using modern C++23 (freestanding) and assembly to provide an ultra-low latency environment where every microsecond is accounted for. The kernel is designed for mission-critical workloads such as high-frequency trading, industrial automation, and high-performance gaming infrastructure.
 
-## Introduction
+## 1. Project Philosophy and Core Objectives
 
-In an era where general-purpose operating systems prioritize throughput over latency, VortexOS takes the opposite approach. Every subsystem is designed with a "determinism-first" philosophy. By eliminating unpredictable kernel behaviors and providing strict timing guarantees, VortexOS allows developers to utilize hardware at its theoretical limits.
+The fundamental goal of VortexOS is to provide absolute determinism. Modern general-purpose operating systems are optimized for average-case throughput, often at the expense of worst-case execution time (WCET). VortexOS reverses this priority.
 
-## System Purpose
+### 1.1. Determinism First
+Every kernel path, from interrupt handling to memory allocation, is designed to have a predictable execution time. We avoid non-deterministic algorithms and heavy locking mechanisms that cause jitter.
 
-The primary purpose of VortexOS is to serve as a specialized platform for workloads where timing is as critical as computational correctness. Unlike monolithic kernels that may suffer from non-deterministic interrupt processing or unpredictable context switches, VortexOS ensures that high-priority tasks always meet their deadlines.
+### 1.2. Zero-Abstraction Performance
+By using C++23 freestanding, we leverage high-level language features (Templates, Concepts, Strong Types) without the overhead of a standard library or runtime exceptions.
 
-## Key Benefits
+### 1.3. Security through Type Safety
+VortexOS utilizes a "Strong Type" system to enforce memory safety at compile time. Physical and virtual addresses are distinct types, making it impossible to accidentally use one in place of the other.
 
-1. Predictable Latency: The interrupt path and scheduler are optimized for nanosecond precision.
-2. Efficient Resource Management: Using a Buddy System and Slab Allocator ensures O(1) memory operations.
-3. Type-Safe Kernel: Extensive use of C++ strong types prevents common pointer-related bugs at compile time.
-4. Scalability: Symmetric Multiprocessing (SMP) support allows the kernel to scale across multiple CPU cores.
-5. Minimal Overhead: A lean kernel design that avoids unnecessary abstractions found in traditional operating systems.
+## 2. Core Kernel Architecture
 
-## System Architecture
+VortexOS follows a modular higher-half kernel design. The kernel is mapped at 0xFFFFFFFF80000000 to leave the lower half of the address space for user processes.
 
-VortexOS utilizes a modular microkernel-inspired design within a higher-half kernel structure. 
+### 2.1. Physical Memory Management (PMM)
+The PMM utilizes a Buddy System Allocator. This allocator manages memory in blocks of $2^n$ pages.
+- Order Range: 0 (4 KiB) to 10 (4 MiB).
+- Complexity: $O(1)$ for allocation and $O(\log n)$ for deallocation/merging.
+- Determinism: Unlike bitmap allocators that require linear scans, the Buddy System ensures constant-time performance for finding free blocks.
 
-### 1. Physical Memory Management (PMM)
-The PMM implements a Buddy System algorithm. This allows for fast, contiguous memory allocation and deallocation with minimal fragmentation. It manages physical memory in power-of-two blocks, ensuring that allocation time remains constant regardless of the system's uptime.
+### 2.2. Kernel Heap (Slab Allocator)
+Small object allocation is handled by a Slab Allocator built on top of the PMM.
+- Cache Sizes: Powers of two from 8 bytes to 2048 bytes.
+- Efficiency: Minimizes internal fragmentation and allows for rapid reuse of common kernel structures like TCBs and VFS nodes.
+- Full/Partial/Empty Lists: Slabs are tracked across three states to optimize memory usage and cache locality.
 
-### 2. Virtual Memory Management (VMM)
-The VMM manages 4-level paging (PML4) on x86-64. It provides process isolation and supports advanced features like Copy-on-Write (CoW) and Kernel Page Table Isolation (KPTI) for security hardening.
+### 2.3. Virtual Memory Management (VMM)
+VortexOS manages 4-level paging (PML4) on x86-64.
+- Address Space Isolation: Each process has its own PML4 table.
+- KPTI (Kernel Page Table Isolation): Mitigates Meltdown-class vulnerabilities by maintaining separate page tables for kernel and user mode.
+- Demand Paging: Future support for loading segments only when accessed to reduce initial process startup time.
 
-### 3. Real-Time Scheduler
-The scheduler supports multiple policies:
-- SCHED_FIFO: Fixed-priority scheduling without time-slicing for the most critical tasks.
-- SCHED_RR: Priority-based round-robin for real-time tasks requiring fair time distribution.
-- SCHED_DL: Earliest Deadline First (EDF) scheduling for hard real-time guarantees.
-- SCHED_NORMAL: A fair scheduler for background or non-critical maintenance tasks.
+### 2.4. Real-Time Scheduler
+The scheduler is the heart of VortexOS, supporting 140 priority levels.
+- SCHED_FIFO: Tasks run until they yield or are preempted by a higher-priority task.
+- SCHED_RR: Priority-based round-robin with a default 1ms quantum.
+- SCHED_DL (EDF): Earliest Deadline First. Tasks are scheduled based on absolute deadlines, ensuring hard real-time guarantees for periodic tasks.
+- Admission Control: Prevents the system from over-committing real-time resources.
 
-### 4. Symmetric Multiprocessing (SMP)
-The kernel boots Application Processors (APs) using the INIT-SIPI-SIPI sequence. Each core maintains its own local state while sharing the global kernel address space, enabling true parallel execution.
+### 2.5. Symmetric Multiprocessing (SMP)
+VortexOS scales across all available CPU cores.
+- ACPI Discovery: Parses the MADT (Multiple APIC Description Table) to identify hardware cores.
+- AP Bootstrap: Uses the INIT-SIPI-SIPI sequence to transition cores from Real Mode to 64-bit Long Mode.
+- Per-CPU Data: Each core maintains its own `CpuLocal` structure via the GS segment for independent scheduling and interrupt handling.
 
-## Usage and Build Instructions
+## 3. Hardware Interfacing
 
-### Prerequisites
+### 3.1. Local APIC and IOAPIC
+The kernel uses the Advanced Programmable Interrupt Controller (APIC) for interrupt management.
+- APIC Timer: Calibrated using the PIT (Programmable Interval Timer) to provide nanosecond-precision ticks.
+- IPI (Inter-Processor Interrupts): Used for cache coherency and task migration between cores.
 
-To build VortexOS, the following tools are required:
-- LLVM/Clang 17 or newer (with lld)
-- NASM (Netwide Assembler)
-- CMake 3.28 or newer
-- Ninja build system
-- QEMU (for emulation)
+### 3.2. Serial Communication
+Standard 16550 UART driver for COM1. This serves as the primary debugging and logging interface during the early development phases.
 
-### Building the Kernel
+## 4. Subsystem Frameworks
 
-1. Initialize the build environment:
+### 4.1. Virtual File System (VFS)
+The VFS provides a unified interface for all storage and device communication.
+- Node Types: Files, Directories, Character Devices, and Block Devices.
+- RAMFS: A temporary in-memory filesystem used during boot to host userland binaries and configuration files.
+
+### 4.2. Driver Framework
+A registration-based system where drivers can be dynamically loaded.
+- Major/Minor Numbering: Similar to UNIX-like systems for device identification.
+- IOCTL Interface: Standardized way to perform device-specific operations.
+
+### 4.3. Network Stack
+A zero-copy network architecture designed for the highest possible throughput.
+- Protocol Support: Initial focus on Ethernet, IPv4, and UDP.
+- Real-Time Focus: Networking interrupts are handled with the same priority as task deadlines to ensure minimal packet jitter.
+
+## 5. Development and Build System
+
+### 5.1. Toolchain Requirements
+- Compiler: Clang 17 or 18 (Target: x86_64-pc-none-elf).
+- Linker: LLVM lld (FORBIDDEN: ld.bfd).
+- Assembler: NASM and Clang-integrated GAS.
+- Build Tool: CMake 3.28+ with Ninja.
+
+### 5.2. Build Instructions
+1. Create a build directory:
    ```powershell
    mkdir build
    cd build
+   ```
+2. Configure the project:
+   ```powershell
    cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE=../cmake/x86_64-toolchain.cmake ..
    ```
-
-2. Compile the source code:
+3. Execute the build:
    ```powershell
    ninja
    ```
 
-The resulting kernel binary will be `vortexos.elf`.
-
-### Running in QEMU
-
-To test the kernel, use the following QEMU command:
+### 5.3. Emulation and Debugging
+QEMU is the recommended emulation platform.
 ```bash
-qemu-system-x86_64 -kernel build/vortexos.elf -serial stdio -m 512M -smp 4
+qemu-system-x86_64 -kernel build/vortexos.elf -serial stdio -m 1G -smp 4 -cpu host
 ```
 
-## Security Strategy
+## 6. Implementation Status and Roadmap
 
-VortexOS incorporates several hardening techniques:
-- Stack Guards: Protecting against buffer overflows in kernel space.
-- Strong Type Enforcement: Preventing the mixing of physical and virtual addresses.
-- KPTI: Isolating kernel and user page tables to mitigate side-channel attacks.
-- No-Execute (NX): Marking data pages as non-executable.
+- Phase 1: Bare Metal Foundation (Complete)
+- Phase 2: Multitasking and SMP (Complete)
+- Phase 3: Userland Isolation and Syscalls (In Progress)
+- Phase 4: VFS and Storage (Planned)
+- Phase 5: Driver Framework (Planned)
+- Phase 6: Network Stack (Planned)
+- Phase 7: Userland C Library (Planned)
+- Phase 8: Hardening and Security (In Progress)
+- Phase 9: Advanced RTOS Features (Planned)
 
-## Future Roadmap
+## 7. Security Strategy
 
-The development of VortexOS is divided into several phases:
-- Phase 3: Completion of Userland Isolation and System Call interface.
-- Phase 4: Implementation of a high-performance Virtual File System (VFS).
-- Phase 5: Driver Framework for NVMe and Network Interface Cards.
-- Phase 6: Zero-copy Network Stack implementation.
+- Rule R10: Strong typing for all memory addresses.
+- Rule R11: UserPtr validation for all syscall arguments.
+- Rule R12: Explicit error handling via Expected<T, E> to avoid silent failures.
+- No-Red-Zone: Kernel compiled with -mno-red-zone to prevent stack corruption by interrupts.
 
-## Licensing
+## 8. License
 
-VortexOS is licensed under the GPL-2.0-or-later license. See the LICENSE file for more details.
+This project is licensed under the GPL-2.0-or-later license.
 
 ---
 
-VortexOS - Precision Engineering for Real-Time Performance.
-Project Lead: @wi5nuu
-
-<!-- Commit Update: docs: rewrite README.md for professional technical standards -->
-
-<!-- Commit Update: docs: add system purpose and philosophy section -->
-
-<!-- Commit Update: docs: add detailed key benefits analysis -->
-
-<!-- Commit Update: docs: document physical memory management architecture -->
-
-<!-- Commit Update: docs: document virtual memory management and KPTI -->
-
-<!-- Commit Update: docs: explain real-time scheduler policies (FIFO, RR, DL) -->
-
-<!-- Commit Update: docs: add symmetric multiprocessing (SMP) documentation -->
-
-<!-- Commit Update: docs: include comprehensive build and usage instructions -->
-
-<!-- Commit Update: docs: add security hardening strategy section -->
-
-<!-- Commit Update: docs: define future development roadmap -->
-
-<!-- Commit Update: kernel: add technical comments to Buddy System allocator -->
-
-<!-- Commit Update: kernel: improve documentation for Slab cache mechanism -->
-
-<!-- Commit Update: kernel: enhance scheduler comments for EDF logic -->
-
-<!-- Commit Update: arch: add hardware reference notes for SMP trampoline -->
-
-<!-- Commit Update: arch: clarify APIC timer calibration procedure -->
-
-<!-- Commit Update: types: add documentation for Rule R10 strong types -->
-
-<!-- Commit Update: vfs: expand documentation for node abstraction layer -->
-
-<!-- Commit Update: proc: add architecture notes for PCB management -->
-
-<!-- Commit Update: legal: add licensing information to main documentation -->
-
-<!-- Commit Update: meta: final documentation polish and metadata update -->
+VortexOS - Engineered for absolute precision and reliability.
+Maintained by: @wi5nuu
+Internal Project Revision: 1.2.0
