@@ -104,3 +104,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: add detailed key benefits analysis -->
 
 <!-- Commit Update: docs: document physical memory management architecture -->
+
+<!-- Commit Update: docs: document virtual memory management and KPTI -->
