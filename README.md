@@ -134,3 +134,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: proc: add architecture notes for PCB management -->
 
 <!-- Commit Update: legal: add licensing information to main documentation -->
+
+<!-- Commit Update: meta: final documentation polish and metadata update -->
