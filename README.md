@@ -130,3 +130,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: types: add documentation for Rule R10 strong types -->
 
 <!-- Commit Update: vfs: expand documentation for node abstraction layer -->
+
+<!-- Commit Update: proc: add architecture notes for PCB management -->
