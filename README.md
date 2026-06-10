@@ -126,3 +126,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: arch: add hardware reference notes for SMP trampoline -->
 
 <!-- Commit Update: arch: clarify APIC timer calibration procedure -->
+
+<!-- Commit Update: types: add documentation for Rule R10 strong types -->
