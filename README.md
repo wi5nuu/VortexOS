@@ -124,3 +124,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: kernel: enhance scheduler comments for EDF logic -->
 
 <!-- Commit Update: arch: add hardware reference notes for SMP trampoline -->
+
+<!-- Commit Update: arch: clarify APIC timer calibration procedure -->
