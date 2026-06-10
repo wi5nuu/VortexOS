@@ -106,3 +106,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: document physical memory management architecture -->
 
 <!-- Commit Update: docs: document virtual memory management and KPTI -->
+
+<!-- Commit Update: docs: explain real-time scheduler policies (FIFO, RR, DL) -->
