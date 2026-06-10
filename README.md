@@ -118,3 +118,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: define future development roadmap -->
 
 <!-- Commit Update: kernel: add technical comments to Buddy System allocator -->
+
+<!-- Commit Update: kernel: improve documentation for Slab cache mechanism -->
