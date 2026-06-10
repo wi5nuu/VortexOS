@@ -1,0 +1,30 @@
+# VortexOS Git Ignore
+
+# Build artifacts
+build/
+bin/
+*.elf
+*.o
+*.obj
+*.d
+*.bin
+*.iso
+
+# Project management & sensitive data
+task.md
+.env
+*.secret
+credentials.*
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+
+# Logs
+*.log
+ninja.log
+.ninja_deps
+.ninja_log
