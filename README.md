@@ -110,3 +110,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: explain real-time scheduler policies (FIFO, RR, DL) -->
 
 <!-- Commit Update: docs: add symmetric multiprocessing (SMP) documentation -->
+
+<!-- Commit Update: docs: include comprehensive build and usage instructions -->
