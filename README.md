@@ -132,3 +132,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: vfs: expand documentation for node abstraction layer -->
 
 <!-- Commit Update: proc: add architecture notes for PCB management -->
+
+<!-- Commit Update: legal: add licensing information to main documentation -->
