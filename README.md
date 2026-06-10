@@ -108,3 +108,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: document virtual memory management and KPTI -->
 
 <!-- Commit Update: docs: explain real-time scheduler policies (FIFO, RR, DL) -->
+
+<!-- Commit Update: docs: add symmetric multiprocessing (SMP) documentation -->
