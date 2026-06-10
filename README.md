@@ -112,3 +112,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: add symmetric multiprocessing (SMP) documentation -->
 
 <!-- Commit Update: docs: include comprehensive build and usage instructions -->
+
+<!-- Commit Update: docs: add security hardening strategy section -->
