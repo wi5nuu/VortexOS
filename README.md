@@ -128,3 +128,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: arch: clarify APIC timer calibration procedure -->
 
 <!-- Commit Update: types: add documentation for Rule R10 strong types -->
+
+<!-- Commit Update: vfs: expand documentation for node abstraction layer -->
