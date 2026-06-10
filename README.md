@@ -116,3 +116,5 @@ Project Lead: @wi5nuu
 <!-- Commit Update: docs: add security hardening strategy section -->
 
 <!-- Commit Update: docs: define future development roadmap -->
+
+<!-- Commit Update: kernel: add technical comments to Buddy System allocator -->
