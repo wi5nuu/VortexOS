@@ -17,9 +17,9 @@ Process* proc_create() {
     if (!proc) return nullptr;
 
     proc->pid = kNextPid++;
-    proc->address_space = vmm::vmm_create_address_space();
+    proc->addr_space = vmm::vmm_create_address_space();
 
-    if (!proc->address_space) {
+    if (!proc->addr_space) {
         heap::kfree(proc);
         return nullptr;
     }
@@ -32,20 +32,19 @@ Process* proc_create_from_parent(Process* parent) {
     if (!child) return nullptr;
 
     child->pid = kNextPid++;
-    child->address_space = vmm::vmm_clone_address_space(parent->address_space);
+    child->addr_space = vmm::vmm_clone_address_space(parent->addr_space);
 
-    if (!child->address_space) {
+    if (!child->addr_space) {
         heap::kfree(child);
         return nullptr;
     }
 
     return child;
 }
-...
 
 void proc_destroy(Process* proc) {
-    if (proc->address_space) {
-        vmm::vmm_destroy_address_space(proc->address_space);
+    if (proc->addr_space) {
+        vmm::vmm_destroy_address_space(proc->addr_space);
     }
     heap::kfree(proc);
 }

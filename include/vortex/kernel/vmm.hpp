@@ -49,6 +49,7 @@ struct AddressSpace {
 
 // ─── API ────────────────────────────────────────────────────────────────────
 AddressSpace* vmm_create_address_space();
+AddressSpace* vmm_clone_address_space(AddressSpace* src_as);
 void vmm_destroy_address_space(AddressSpace* as);
 void vmm_switch_address_space(AddressSpace* as);
 

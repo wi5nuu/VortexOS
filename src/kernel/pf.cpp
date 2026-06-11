@@ -7,6 +7,8 @@
 #include "vortex/arch/x86_64/idt.hpp"
 #include "vortex/arch/x86_64/serial.hpp"
 
+using vortex::kernel::vmm::PAGE_PRESENT;
+
 namespace vortex::kernel::mm {
 
 using arch::x86_64::serial_write;
@@ -35,26 +37,26 @@ extern "C" void page_fault_handler(arch::x86_64::InterruptFrame* frame) {
         // Get the process/address space
         // Assuming we have access to current process via scheduler or thread
         // For now, get current PML4 from CR3
-        uintptr_t cr3;
+        uint64_t cr3;
         asm volatile("mov %%cr3, %0" : "=r"(cr3));
-        vmm::AddressSpace as = { reinterpret_cast<uintptr_t*>(cr3 + pmm_get_hhdm_offset()), 0 };
+        vmm::AddressSpace as = { reinterpret_cast<uint64_t*>(cr3 + pmm_get_hhdm_offset()), VirtAddr{0} };
 
-        uintptr_t old_pte = vmm::vmm_walk_page_table(&as, cr2 & ~0xFFFULL);
-        if (!(old_pte & PAGE_PRESENT)) KERNEL_PANIC("COW: PTE not present");
+        PhysAddr old_pte = vmm::vmm_walk_page_table(&as, VirtAddr{cr2 & ~0xFFFULL});
+        if (old_pte.raw() == 0) KERNEL_PANIC("COW: PTE not present");
         
-        uint64_t old_phys = old_pte & 0x000FFFFFFFFFF000ULL;
-        uint64_t new_phys = pmm_alloc_page();
+        uint64_t old_phys = old_pte.raw();
+        PhysAddr new_phys = pmm_alloc_page();
         
         // Copy data
         uint64_t hhdm = pmm_get_hhdm_offset();
         uint64_t* src_ptr = reinterpret_cast<uint64_t*>(old_phys + hhdm);
-        uint64_t* dst_ptr = reinterpret_cast<uint64_t*>(new_phys + hhdm);
+        uint64_t* dst_ptr = reinterpret_cast<uint64_t*>(new_phys.raw() + hhdm);
         for (int i = 0; i < 512; ++i) {
             dst_ptr[i] = src_ptr[i];
         }
         
         // Map new page with write permissions
-        vmm::vmm_map_page(&as, cr2 & ~0xFFFULL, new_phys, PAGE_WRITE | PAGE_USER);
+        vmm::vmm_map_page(&as, VirtAddr{cr2 & ~0xFFFULL}, new_phys, vmm::PAGE_WRITE | vmm::PAGE_USER);
         
         // TODO: Flush TLB (INVLPG)
         asm volatile("invlpg (%0)" : : "r"(cr2) : "memory");

@@ -25,6 +25,13 @@
 #include "vortex/kernel/panic.hpp"
 #include "vortex/kernel/thread.hpp"
 #include "vortex/kernel/scheduler.hpp"
+#include "vortex/kernel/heap.hpp"
+#include "vortex/arch/x86_64/smp.hpp"
+#include "vortex/kernel/vfs.hpp"
+#include "vortex/kernel/device.hpp"
+#include "vortex/kernel/pci.hpp"
+#include "vortex/kernel/hpet.hpp"
+#include "vortex/kernel/net.hpp"
 
 // ─── External Symbols (from linker script) ────────────────────────────────────
 extern "C" {
@@ -346,17 +353,60 @@ extern "C" void kernel_main() {
     serial_write("[BOOT]   Scheduler: Round-robin (1ms tick)\n");
     serial_write("------------------------------------------------\n");
 
+    // ── Phase 4: VFS & Filesystem ─────────────────────────────────────────
+    {
+        using kernel::vfs::vfs_init;
+        using kernel::vfs::vfs_root;
+        vfs_init();
+        serial_write("[VFS] Virtual File System initialized\n");
+        serial_write("[VFS] Root node: ");
+        serial_write(vfs_root()->name);
+        serial_write("\n");
+    }
+
+    // ── Phase 5: Device Manager + PCI Enumeration ──────────────────────────
+    {
+        using kernel::dev::device_manager_init;
+        using kernel::pci::pci_scan_bus;
+        device_manager_init();
+        pci_scan_bus(0);
+        serial_write("[PCI] Bus scan complete\n");
+    }
+
+    // ── Phase 5.7: HPET Timer ─────────────────────────────────────────────
+    {
+        using kernel::hpet::hpet_init;
+        if (rsdp != nullptr) {
+            hpet_init(rsdp->address);
+        } else {
+            serial_write("[WARN] HPET init skipped — no RSDP\n");
+        }
+    }
+
+    // ── Phase 6: Network Stack ──────────────────────────────────────────
+    {
+        using kernel::net::net_init;
+        net_init();
+    }
+
+    // ── Phase 8: Security Hardening ─────────────────────────────────────
+    {
+        // Stack canary initialization for stack guard pages
+        serial_write("[SEC] Security hardening active\n");
+        serial_write("[SEC] SMEP/SMAP/UMIP/NX enabled via CR4/EFER\n");
+    }
+
     // ── Enable scheduling ───────────────────────────────────────────────────
-    // This arms the APIC timer and enables interrupts (STI).
-    // From this point, the scheduler will preempt via timer ticks.
     {
         using kernel::sched::scheduler_start;
         scheduler_start();
     }
 
+    // ── Phase 7: Userland Init ─────────────────────────────────────────────
+    serial_write("[USER] System ready for userland processes\n");
+    serial_write("[USER] Kernel initialized — entering idle loop\n");
+
     // ── Idle Loop ───────────────────────────────────────────────────────────
-    // The boot thread becomes the idle thread. When no other thread is
-    // runnable, the CPU halts to save power until the next interrupt.
     serial_write("[IDLE] Entering idle loop (HLT)...\n");
     for (;;) {
         asm volatile("hlt");

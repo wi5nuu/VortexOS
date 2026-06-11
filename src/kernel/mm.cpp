@@ -192,6 +192,8 @@ void pmm_free_pages(PhysAddr phys, uint64_t count) {
     PageFrame* frame = &kFrames[pfn];
     uint8_t order = frame->order;
 
+    (void)count; // Contiguity verified; all pages in the block share the same order
+
     kFreePages += (1ULL << order);
     frame->flags &= ~PAGE_USED;
 

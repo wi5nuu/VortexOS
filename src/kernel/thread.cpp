@@ -97,7 +97,8 @@ ThreadControlBlock* kthread_create(ThreadFunc func, const char* name, uint8_t pr
     }
 
     // Allocate kernel stack pages from PMM
-    uint64_t stack_phys = pmm_alloc_pages(KTHREAD_STACK_PAGES);
+    PhysAddr stack_phys_pa = pmm_alloc_pages(KTHREAD_STACK_PAGES);
+    uint64_t stack_phys = stack_phys_pa.raw();
     if (stack_phys == 0) {
         KERNEL_PANIC("kthread_create: out of memory for stack");
     }

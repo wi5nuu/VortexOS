@@ -137,8 +137,8 @@ void schedule() {
     thread_set_current(next);
 
     if (next->stack_base != 0) {
-        uint64_t stack_top = (next->stack_base + mm::pmm_get_hhdm_offset()) 
-                            + (next->stack_pages * mm::PAGE_SIZE);
+        uint64_t stack_top = (next->stack_base + mm::pmm_get_hhdm_offset())
+                            + (static_cast<uint64_t>(next->stack_pages) * mm::PAGE_SIZE);
         arch::x86_64::tss_set_rsp0(stack_top);
     }
 

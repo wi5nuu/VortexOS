@@ -35,7 +35,12 @@ struct StrongType {
     constexpr T raw() const { return value; }
 
     // Boilerplate for comparison and basic math if needed
-    auto operator<=>(const StrongType&) const = default;
+    constexpr bool operator==(const StrongType& other) const { return value == other.value; }
+    constexpr bool operator!=(const StrongType& other) const { return value != other.value; }
+    constexpr bool operator<(const StrongType& other) const { return value < other.value; }
+    constexpr bool operator>(const StrongType& other) const { return value > other.value; }
+    constexpr bool operator<=(const StrongType& other) const { return value <= other.value; }
+    constexpr bool operator>=(const StrongType& other) const { return value >= other.value; }
     
     constexpr StrongType& operator+=(T v) { value += v; return *this; }
     constexpr StrongType& operator-=(T v) { value -= v; return *this; }

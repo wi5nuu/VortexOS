@@ -38,7 +38,6 @@ enum class SchedPolicy : uint8_t {
 };
 
 // ─── Saved CPU Context ────────────────────────────────────────────────────────
-...
 struct CpuContext {
     uint64_t rbx;
     uint64_t rbp;

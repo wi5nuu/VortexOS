@@ -19,12 +19,18 @@ namespace vortex::kernel::vmm {
 using arch::x86_64::serial_write;
 using kernel::mm::pmm_alloc_page;
 using kernel::mm::pmm_get_hhdm_offset;
+using kernel::mm::pmm_free_page;
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 // PML4/PDPT/PD/PT entry format bits (Intel SDM Vol.3A §4.5)
-inline constexpr uint64_t PAGE_PRESENT = (1ULL << 0);
-inline constexpr uint64_t PAGE_WRITE   = (1ULL << 1);
-inline constexpr uint64_t PAGE_USER    = (1ULL << 2);
+// (Note: shadow vmm.hpp defines PAGE_PRESENT, PAGE_WRITE, PAGE_USER, PAGE_NX)
+
+// ─── Helper: Get current PML4 from CR3 ─────────────────────────────────────
+static uint64_t* get_current_pml4() {
+    uint64_t cr3;
+    asm volatile("mov %%cr3, %0" : "=r"(cr3));
+    return reinterpret_cast<uint64_t*>(cr3 + pmm_get_hhdm_offset());
+}
 
 // ─── COW & Cloning ──────────────────────────────────────────────────────────
 
@@ -46,9 +52,10 @@ static bool copy_page_table_level(uint64_t* src_table, uint64_t* dst_table, int 
             dst_table[i] = src_table[i] & ~PAGE_WRITE;
             src_table[i] = src_table[i] & ~PAGE_WRITE;
         } else {
-            // Allocate new table for lower levels
-            uint64_t new_phys = pmm_alloc_page();
-            if (new_phys == 0) return false;
+                        // Allocate new table for lower levels
+            PhysAddr new_table_phys = pmm_alloc_page();
+            if (new_table_phys.raw() == 0) return false;
+            uint64_t new_phys = new_table_phys.raw();
             
             uint64_t* new_virt = reinterpret_cast<uint64_t*>(new_phys + hhdm);
             uint64_t* src_next = reinterpret_cast<uint64_t*>((src_table[i] & 0x000FFFFFFFFFF000ULL) + hhdm);
@@ -66,7 +73,6 @@ AddressSpace* vmm_clone_address_space(AddressSpace* src_as) {
     if (!dst_as) return nullptr;
     
     // Copy user mappings (0 to 255)
-    uint64_t hhdm = pmm_get_hhdm_offset();
     uint64_t* src_pml4 = src_as->pml4;
     uint64_t* dst_pml4 = dst_as->pml4;
     

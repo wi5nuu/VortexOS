@@ -49,7 +49,7 @@ struct MADT {
     SDTHeader header;
     uint32_t lapic_addr;
     uint32_t flags;
-    uint8_t entries[];
+    uint8_t entries; // Flexible array member accessed via &entries
 };
 
 // ─── SMP State ───────────────────────────────────────────────────────────────
@@ -60,8 +60,8 @@ static volatile uint32_t kCpusStarted = 1;
 static uint64_t kHhdm = 0;
 
 // Symbols from trampoline.asm
-extern "C" uint8_t trampoline_start[];
-extern "C" uint8_t trampoline_end[];
+extern "C" uint8_t _trampoline_start[];
+extern "C" uint8_t _trampoline_end[];
 
 // Fixed offsets in trampoline.asm (must match exactly)
 static constexpr uint64_t TRAMPOLINE_PHYS = 0x8000;
@@ -125,7 +125,7 @@ void smp_init(uint64_t rsdp_phys, uint64_t hhdm_offset) {
     }
 
     // Parse MADT entries
-    uint8_t* ptr = madt->entries;
+    uint8_t* ptr = &madt->entries;
     uint8_t* end = reinterpret_cast<uint8_t*>(madt) + madt->header.length;
     
     while (ptr < end) {
@@ -151,10 +151,10 @@ void smp_init(uint64_t rsdp_phys, uint64_t hhdm_offset) {
 
     // 2. Prepare Trampoline
     uint8_t* trampoline_dest = reinterpret_cast<uint8_t*>(TRAMPOLINE_PHYS + hhdm_offset);
-    uint64_t trampoline_size = reinterpret_cast<uint64_t>(trampoline_end) - reinterpret_cast<uint64_t>(trampoline_start);
+    uint64_t trampoline_size = reinterpret_cast<uint64_t>(_trampoline_end) - reinterpret_cast<uint64_t>(_trampoline_start);
     
     for (uint64_t i = 0; i < trampoline_size; ++i) {
-        trampoline_dest[i] = trampoline_start[i];
+        trampoline_dest[i] = _trampoline_start[i];
     }
 
     // Pass GDT, PML4, and Entry Point
@@ -183,15 +183,15 @@ void smp_init(uint64_t rsdp_phys, uint64_t hhdm_offset) {
         // Send INIT IPI
         apic_send_ipi(lapic_id, ICR_INIT | ICR_ASSERT | ICR_LEVEL_TRIGGER);
         
-        // Wait 10ms (busy wait for now)
-        for (volatile int j = 0; j < 10000000; j++);
+        // Wait 10ms (busy wait for now) using non-volatile local
+        for (int j = 0; j < 10000000; j++) { asm volatile("pause"); }
 
         // Send Startup IPI (SIPI)
         // Vector is the page number: 0x8000 >> 12 = 0x08
         apic_send_ipi(lapic_id, ICR_STARTUP | 0x08);
 
         // SIPI should be sent twice if the first one doesn't work (Intel requirement)
-        for (volatile int j = 0; j < 1000000; j++);
+        for (int j = 0; j < 1000000; j++) { asm volatile("pause"); }
         apic_send_ipi(lapic_id, ICR_STARTUP | 0x08);
     }
 

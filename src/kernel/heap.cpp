@@ -25,11 +25,14 @@ using kernel::mm::PAGE_SIZE;
 
 // ─── Slab Structures ─────────────────────────────────────────────────────────
 
+struct SlabCache;
+
 struct Slab {
     void*     free_list;   // Head of free objects in this slab
     uint32_t  free_count;
     Slab*     next;
     Slab*     prev;
+    SlabCache* cache;      // Parent cache for kfree lookup
 };
 
 struct SlabCache {
@@ -69,6 +72,7 @@ static Slab* slab_create(SlabCache* cache) {
     slab->free_count = (PAGE_SIZE - sizeof(Slab)) / cache->object_size;
     slab->next = nullptr;
     slab->prev = nullptr;
+    slab->cache = cache;
 
     // Build the free list (linked list of objects)
     uint8_t* first_obj = static_cast<uint8_t*>(virt) + sizeof(Slab);
@@ -166,18 +170,36 @@ void kfree(void* ptr) {
     mm::PageFrame* frame = mm::pmm_get_frame(phys);
     if (!frame) return;
 
-    // If it's a slab-managed page
     if (frame->private_data) {
         Slab* slab = static_cast<Slab*>(frame->private_data);
-        
-        // Find which cache this slab belongs to by checking object_size
-        // In a real OS, we might store a pointer to SlabCache in Slab.
-        // For simplicity, let's deduce it or just handle it.
-        // Wait, I should have added cache pointer to Slab.
-        
-        // Let's find the cache by looking at object_size
-        // But Slab doesn't store object_size. Let's fix that.
-        // (Self-correction: I'll just assume we find it for now or fix Slab struct)
+        SlabCache* cache = slab->cache;
+
+        // Return object to the slab's free list
+        *reinterpret_cast<void**>(ptr) = slab->free_list;
+        slab->free_list = ptr;
+        slab->free_count++;
+
+        // If slab was full, move to partial
+        if (slab->free_count == 1) {
+            if (slab->prev) slab->prev->next = slab->next;
+            else cache->full = slab->next;
+            if (slab->next) slab->next->prev = slab->prev;
+            slab->next = cache->partial;
+            if (cache->partial) cache->partial->prev = slab;
+            cache->partial = slab;
+            slab->prev = nullptr;
+        }
+
+        // If slab is now completely free, move to empty list
+        if (slab->free_count >= (PAGE_SIZE - sizeof(Slab)) / cache->object_size) {
+            if (slab->prev) slab->prev->next = slab->next;
+            else cache->partial = slab->next;
+            if (slab->next) slab->next->prev = slab->prev;
+            slab->next = cache->empty;
+            if (cache->empty) cache->empty->prev = slab;
+            cache->empty = slab;
+            slab->prev = nullptr;
+        }
     } else {
         // Direct page allocation
         mm::pmm_free_pages(phys, (1ULL << frame->order));
