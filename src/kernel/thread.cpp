@@ -178,11 +178,13 @@ void thread_sleep(uint64_t /*ticks*/) {
 
     serial_write("[SCHED] Thread '");
     serial_write(kCurrentThread->name);
-    serial_write("' exited\n");
+    serial_write("' exited (id=");
+    serial_write_dec(kCurrentThread->id);
+    serial_write(")\n");
 
     // Yield to scheduler — it will pick the next ready thread
     // For now, halt since we don't have the scheduler wired yet
-    KERNEL_PANIC("thread_exit: no scheduler to yield to");
+    for (;;) { asm volatile("hlt"); }
 }
 
 // ─── Internal: Set Current Thread ────────────────────────────────────────────

@@ -106,3 +106,39 @@ syscall_entry:
     ; RCX = return RIP (must be preserved from above)
     ; R11 = return RFLAGS (must be preserved from above)
     sysret
+
+; ─── Fork Child Return ─────────────────────────────────────────────────────
+; Called from C++ code after a fork child thread has been scheduled.
+; InterruptFrame* is passed in RDI (System V AMD64 ABI).
+; We restore user registers and return to userland via sysret.
+global syscall_child_return
+syscall_child_return:
+    ; RDI = InterruptFrame* — set RSP to it
+    mov rsp, rdi
+
+    ; Pop GPRs matching the push order in syscall_entry
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+
+    ; Skip vector and error_code
+    add rsp, 16
+
+    ; Skip synthetic frame
+    add rsp, 40
+
+    ; Back to userland
+    swapgs
+    sysret

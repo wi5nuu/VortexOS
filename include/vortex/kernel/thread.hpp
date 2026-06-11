@@ -19,6 +19,8 @@
 
 #include "vortex/types.hpp"
 
+namespace vortex::kernel::proc { struct Process; }
+
 namespace vortex::kernel::sched {
 
 // ─── Thread State ─────────────────────────────────────────────────────────────
@@ -68,6 +70,7 @@ struct ThreadControlBlock {
 
     uint32_t        id;              // Thread ID (monotonically increasing)
     const char*     name;            // Thread name (for debug output)
+    proc::Process*  process;         // Owning process (null for kernel threads)
     ThreadControlBlock* next;        // Next in ready queue (linked list)
 };
 
